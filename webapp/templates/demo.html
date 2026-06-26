@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="demo-shell">
+  <section class="card demo-hero">
+    <div class="demo-hero-copy">
+      <p class="eyebrow">Interactive Model Runner</p>
+      <h2>Train &amp; compare fairness models</h2>
+      <p class="demo-lead">Upload your dataset, select a model, and watch the training progress with live logs, metrics, and latent-space visualisations.</p>
+      <div class="demo-tips">
+        <span>&#9679; Single active run</span>
+        <span>&#9679; Live training logs</span>
+        <span>&#9679; Instant metrics</span>
+      </div>
+    </div>
+    <form id="job-form" class="demo-form">
+      <label>CSV Dataset
+        <input type="file" name="file" accept=".csv" required />
+      </label>
+      <label>Model (select exactly one)
+        <select name="model_name" required>
+          {% for key, label in models.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Random Seed
+        <input type="number" name="seed" value="42" min="0" max="999999" required />
+      </label>
+      <label class="inline">
+        <input type="checkbox" name="include_latent_vis" value="true" />
+        Include latent visualisation
+      </label>
+      <button type="submit" id="run-button">Run Model</button>
+    </form>
+  </section>
+
+  <section class="card demo-status" id="job-card" style="display:none">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Run Monitor</p>
+        <h3>Job Status</h3>
+      </div>
+      <span class="status-pill" id="status">queued</span>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <span class="metric-label">Job ID</span>
+        <strong class="metric-value metric-code" id="job-id"></strong>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Progress</span>
+        <strong class="metric-value"><span id="progress">0</span>%</strong>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">Current Stage</span>
+        <strong class="metric-value" id="progress-text">Queued</strong>
+      </div>
+    </div>
+
+    <div class="progress-panel">
+      <div class="progress-meta">
+        <span>Training progress</span>
+        <span id="progress-note">Waiting to start</span>
+      </div>
+      <div class="progress-wrap"><div id="bar"></div></div>
+    </div>
+
+    <div id="result-panel" class="result-panel"></div>
+
+    <div class="log-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Console</p>
+          <h4>Live Logs</h4>
+        </div>
+      </div>
+      <pre id="logs"></pre>
+    </div>
+  </section>
+</section>
+
+<script src="/static/demo.js"></script>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Bias Analysis</h2>
+  <form id="analysis-form">
+    <label>CSV Dataset
+      <input type="file" name="file" accept=".csv" required />
+    </label>
+    <button type="submit">Run Bias Analysis</button>
+  </form>
+
+  <div id="analysis-loading" class="analysis-loading" style="display:none;">
+    <p>Running bias analysis... This may take a moment.</p>
+  </div>
+
+  <div id="analysis-result" style="display:none">
+
+    <div class="card" id="summary-section">
+      <h3>Dataset Summary</h3>
+      <p id="summary-text"></p>
+    </div>
+
+    <div class="card">
+      <h3>1. Disparate Impact &amp; Hire Rate by Group</h3>
+      <p class="chart-desc">DI &lt; 0.8 indicates potential discrimination (red dashed line). Hire Rate shows the raw hiring percentage per group.</p>
+      <div class="chart-container">
+        <canvas id="chart-di"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>2. Equal Opportunity Gap by Group</h3>
+      <p class="chart-desc">|EO Gap| &gt; 0.10 indicates unequal opportunity among qualified candidates (red dashed lines).</p>
+      <div class="chart-container">
+        <canvas id="chart-eo"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>3. Odds Ratios (Controlling for Qualifications)</h3>
+      <p class="chart-desc">OR &lt; 1 means disadvantaged compared to Male_White baseline, even after controlling for qualifications. OR &lt; 0.8 = significant disadvantage.</p>
+      <div class="chart-container">
+        <canvas id="chart-odds"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>4. Top Bias-Causing Features (SHAP)</h3>
+      <p class="chart-desc">Average SHAP difference vs baseline. More negative = this feature contributes more to disadvantaging non-baseline groups.</p>
+      <div class="chart-container">
+        <canvas id="chart-shap-features"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>5. Bias Source Heatmap (SHAP Group × Feature)</h3>
+      <p class="chart-desc">Each cell shows how much a feature disadvantages a specific group vs Male_White. Darker red = stronger bias source.</p>
+      <div class="chart-container chart-container-scroll">
+        <canvas id="chart-heatmap"></canvas>
+      </div>
+    </div>
+
+    <div class="card" id="shap-plot-section" style="display:none">
+      <h3>6. SHAP Summary Plot</h3>
+      <p class="chart-desc">Global feature importance from GradientBoosting model. Red = high feature value, Blue = low.</p>
+      <div class="analysis-image-wrap">
+        <img id="shap-plot-img" src="" alt="SHAP Summary Plot" class="analysis-image" />
+      </div>
+    </div>
+
+    <div class="card" id="files-section">
+      <h3>Output Files</h3>
+      <ul id="files-list"></ul>
+    </div>
+
+  </div>
+</section>
+
+<script src="/static/bias_analysis.js"></script>
+{% endblock %}

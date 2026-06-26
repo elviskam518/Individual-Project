@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import threading
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .pipeline import run_pipeline_job
+
+
+@dataclass
+class JobState:
+    id: str
+    status: str = "queued"
+    progress: int = 0
+    progress_text: str = "Queued"
+    logs: list[str] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    finished_at: str | None = None
+    output_dir: str | None = None
+    error: str | None = None
+    summary: dict[str, Any] | None = None
+    artifacts: dict[str, str] = field(default_factory=dict)
+    cancelled: bool = False
+
+
+class JobManager:
+    def __init__(self, runs_root: Path):
+        self.runs_root = runs_root
+        self.runs_root.mkdir(parents=True, exist_ok=True)
+        self.jobs: dict[str, JobState] = {}
+        self.lock = threading.Lock()
+        self.pool = ThreadPoolExecutor(max_workers=2)
+        self.active_job_id: str | None = None
+
+    def _add_log(self, job_id: str, message: str):
+        with self.lock:
+            job = self.jobs[job_id]
+            if job.cancelled:
+                return
+            job.logs.append(message)
+            if len(job.logs) > 2000:
+                job.logs = job.logs[-2000:]
+
+    def _set_progress(self, job_id: str, pct: int, text: str):
+        with self.lock:
+            job = self.jobs[job_id]
+            if job.cancelled:
+                return
+            job.progress = int(max(0, min(100, pct)))
+            job.progress_text = text
+
+    def _run_job(self, job_id: str, csv_path: Path, model_name: str, seed: int, include_latent_vis: bool, run_analysis: bool):
+        with self.lock:
+            job = self.jobs[job_id]
+            if job.cancelled:
+                return
+            job.status = "running"
+
+        out_dir = self.runs_root / job_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            result = run_pipeline_job(
+                csv_path=csv_path,
+                out_dir=out_dir,
+                model_name=model_name,
+                seed=seed,
+                include_latent_vis=include_latent_vis,
+                log=lambda msg: self._add_log(job_id, msg),
+                progress=lambda pct, text: self._set_progress(job_id, pct, text),
+                run_analysis=run_analysis,
+            )
+            with self.lock:
+                job = self.jobs[job_id]
+                if job.cancelled:
+                    return
+                job.status = "completed"
+                job.progress = 100
+                job.progress_text = "Completed"
+                job.summary = result.summary
+                job.artifacts = result.artifact_paths
+                job.output_dir = str(out_dir)
+                job.finished_at = datetime.utcnow().isoformat()
+                if self.active_job_id == job_id:
+                    self.active_job_id = None
+        except Exception as exc:
+            with self.lock:
+                job = self.jobs[job_id]
+                if job.cancelled:
+                    return
+                job.status = "failed"
+                job.error = str(exc)
+                job.finished_at = datetime.utcnow().isoformat()
+                if self.active_job_id == job_id:
+                    self.active_job_id = None
+
+    def cancel_job(self, job_id: str):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if not job or job.status in {"completed", "failed", "cancelled"}:
+                return
+            job.cancelled = True
+            job.status = "cancelled"
+            job.progress_text = "Cancelled"
+            job.error = "Cancelled because a newer run was started."
+            job.finished_at = datetime.utcnow().isoformat()
+            if self.active_job_id == job_id:
+                self.active_job_id = None
+
+    def cancel_active_job(self):
+        with self.lock:
+            active_job_id = self.active_job_id
+        if active_job_id:
+            self.cancel_job(active_job_id)
+
+    def create_job(self, csv_path: Path, model_name: str, seed: int, include_latent_vis: bool, run_analysis: bool = True) -> JobState:
+        self.cancel_active_job()
+        job_id = str(uuid.uuid4())
+        state = JobState(id=job_id)
+        with self.lock:
+            self.jobs[job_id] = state
+            self.active_job_id = job_id
+        self.pool.submit(self._run_job, job_id, csv_path, model_name, seed, include_latent_vis, run_analysis)
+        return state
+
+    def get_job(self, job_id: str) -> JobState | None:
+        with self.lock:
+            return self.jobs.get(job_id)
+
+    def latest_completed(self) -> list[JobState]:
+        with self.lock:
+            jobs = [j for j in self.jobs.values() if j.status == "completed"]
+        return sorted(jobs, key=lambda j: j.finished_at or "", reverse=True)
+
+    def shutdown(self):
+        self.pool.shutdown(wait=False, cancel_futures=True)

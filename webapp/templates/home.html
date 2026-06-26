@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Project Overview</h2>
+
+  <p>
+    This web application provides a local interface for running the
+    fairness analysis and model evaluation pipeline developed for this project.
+  </p>
+
+  <ul>
+    <li>Intermediate fairness analysis using <code>bias_analysis.py</code></li>
+    <li>Baseline MLP and standalone adversarial debiasing from <code>adversarial_baselines.py</code></li>
+    <li>Fair CVAE training and evaluation from <code>fair_cvae.py</code></li>
+    <li>Latent-space visualisation from <code>latent_visualisation.py</code></li>
+    <li>Background job execution with live status, progress, and logs</li>
+  </ul>
+
+  <p>
+    Use the navigation above to access the interactive demo, completed results,
+    and intermediate fairness analysis pages.
+  </p>
+</section>
+{% endblock %}

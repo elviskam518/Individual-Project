@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Results</h2>
+  <p>Completed jobs only. Click any historical run to view its data and fairness chart.</p>
+  {% if jobs %}
+    <div class="results-layout">
+      <div class="results-list">
+        {% for job in jobs %}
+          <button
+            class="result-item"
+            type="button"
+            data-job-id="{{ job.id }}"
+            data-model="{{ job.summary.result.model if job.summary and job.summary.result else '-' }}"
+            data-finished="{{ job.finished_at }}"
+            data-status="{{ job.status }}"
+          >
+            <span class="result-item-model">{{ job.summary.result.model if job.summary and job.summary.result else '-' }}</span>
+            <span class="result-item-meta">{{ job.finished_at }}</span>
+            <span class="result-item-id">{{ job.id }}</span>
+          </button>
+        {% endfor %}
+      </div>
+
+      <div class="result-viewer card" id="result-viewer">
+        <p class="eyebrow">Historical Run</p>
+        <h3 id="viewer-title">Select a completed run</h3>
+        <p id="viewer-subtitle">The data table and DI chart will appear here.</p>
+        <div id="viewer-content"></div>
+      </div>
+    </div>
+  {% else %}
+    <p>No completed jobs yet.</p>
+  {% endif %}
+</section>
+<script src="/static/results.js"></script>
+{% endblock %}
